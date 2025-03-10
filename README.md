@@ -3,6 +3,9 @@
 A personal chess coaching platform that leverages AI and chess analytics to help players improve their game.
 
 ## Next Steps
+
+Remember: Create capability to have computer play against my moves at my ELO
+
 1. **User Authentication**
    - Implement user login/registration
    - Set up user profiles and game history storage

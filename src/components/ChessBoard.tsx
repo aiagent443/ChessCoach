@@ -5,6 +5,8 @@ import { Chess, Move } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import EngineAnalysis from './EngineAnalysis';
 
+type BoardOrientation = 'white' | 'black';
+
 export default function ChessBoard() {
   // Initialize the chess instance and state
   const [game, setGame] = useState(new Chess());
@@ -12,6 +14,7 @@ export default function ChessBoard() {
   const [position, setPosition] = useState<string>('');
   const [evaluation, setEvaluation] = useState<string>('');
   const [showEngine, setShowEngine] = useState(false);
+  const [boardOrientation, setBoardOrientation] = useState<BoardOrientation>('white');
 
   // Update position and evaluation when game changes
   useEffect(() => {
@@ -42,111 +45,80 @@ export default function ChessBoard() {
 
   // Function to make a move
   const makeAMove = useCallback((move: any) => {
+    const gameCopy = new Chess(game.fen());
     try {
-      const result = game.move(move);
+      const result = gameCopy.move(move);
       if (result) {
-        const newGame = new Chess(game.fen());
-        setGame(newGame);
+        setGame(gameCopy);
         // Add move to history
         setMoveHistory(prev => [...prev, `${result.piece.toUpperCase()}${result.from}-${result.to}`]);
+        return true;
       }
-      return result;
-    } catch (e) {
-      return null;
+    } catch (error) {
+      return false;
     }
+    return false;
   }, [game]);
 
   // Function to handle piece drop
-  function onDrop(sourceSquare: string, targetSquare: string) {
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: 'q', // always promote to queen for simplicity
-    });
-
+  const onDrop = (sourceSquare: string, targetSquare: string) => {
+    const move = game.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
     if (move === null) return false;
+    setGame(new Chess(game.fen()));
     return true;
-  }
+  };
 
   // Function to reset the game
   const resetGame = () => {
+    console.log('Reset button clicked');
     setGame(new Chess());
     setMoveHistory([]);
     setEvaluation('Equal position');
+    console.log('Game reset:', game.fen());
   };
 
   // Function to undo last move
-  const undoLastMove = () => {
-    const newGame = new Chess(game.fen());
-    newGame.undo();
-    setGame(newGame);
-    setMoveHistory(prev => prev.slice(0, -1));
+  const undoMove = () => {
+    console.log('Undo button clicked');
+    game.undo();
+    setGame(new Chess(game.fen()));
+    console.log('Move undone:', game.fen());
   };
 
+  function flipBoard() {
+    console.log('Flip board button clicked');
+    setBoardOrientation(boardOrientation === 'white' ? 'black' : 'white');
+    console.log('Board orientation:', boardOrientation);
+  }
+
+  function copyFEN() {
+    console.log('Copy FEN button clicked');
+    navigator.clipboard.writeText(game.fen());
+    console.log('FEN copied:', game.fen());
+  }
+
   return (
-    <div className="flex flex-col md:flex-row gap-8 w-full max-w-[1200px] mx-auto">
-      <div className="flex-1">
-        <Chessboard 
-          position={position} 
+    <div className="flex flex-col md:flex-row md:space-x-4">
+      <div className="flex-grow">
+        <Chessboard
+          position={game.fen()}
           onPieceDrop={onDrop}
-          boardWidth={600}
-          customBoardStyle={{
-            borderRadius: '4px',
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5)',
-          }}
+          boardWidth={400}
+          customBoardStyle={{ borderRadius: '4px', boxShadow: '0 5px 15px rgba(0,0,0,0.3)' }}
         />
-        <div className="mt-4 flex justify-center gap-4">
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            onClick={resetGame}
-          >
-            Reset Board
-          </button>
-          <button
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-            onClick={undoLastMove}
-            disabled={moveHistory.length === 0}
-          >
-            Undo Move
-          </button>
-          <button
-            className={`px-4 py-2 rounded transition-colors ${
-              showEngine 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-            }`}
-            onClick={() => setShowEngine(!showEngine)}
-          >
+        <div className="mt-4 flex justify-between">
+          <button onClick={resetGame} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Reset</button>
+          <button onClick={undoMove} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Undo</button>
+          <button onClick={() => setShowEngine(!showEngine)} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
             {showEngine ? 'Hide Engine' : 'Show Engine'}
           </button>
         </div>
       </div>
-      
-      <div className="flex-none w-full md:w-80 space-y-4">
-        <div className="p-4 bg-gray-50 rounded-lg shadow">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-2">Position Evaluation</h3>
-            <p className="text-gray-700">{evaluation}</p>
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Move History</h3>
-            <div className="h-[200px] overflow-y-auto">
-              {moveHistory.map((move, index) => (
-                <div key={index} className="py-1 px-2 hover:bg-gray-100">
-                  {`${index + 1}. ${move}`}
-                </div>
-              ))}
-            </div>
-          </div>
+      {showEngine && (
+        <div className="mt-4 md:mt-0 md:w-1/3">
+          <EngineAnalysis fen={game.fen()} />
         </div>
-
-        {showEngine && (
-          <div className="p-4 bg-gray-50 rounded-lg shadow">
-            <EngineAnalysis fen={position} />
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 } 
